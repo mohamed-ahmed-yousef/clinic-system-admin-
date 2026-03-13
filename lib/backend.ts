@@ -1,4 +1,6 @@
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
+import { getBackendUrl } from './env'
+
+const BACKEND_URL = getBackendUrl()
 
 // Pass the super admin JWT (from the session cookie) on every call.
 // No env-var credentials needed — the token is issued by the backend on login.
