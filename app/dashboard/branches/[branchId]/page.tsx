@@ -74,15 +74,22 @@ export default function BranchDetailPage() {
 
   useEffect(() => { fetchData() }, [branchId])
 
-  async function handleCreateAndAssign(e: React.FormEvent) {
+  async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault()
     setFormError('')
     setFormLoading(true)
     try {
+      const brandId = branch?.brand?.id
+      if (!brandId) {
+        throw new Error('Cannot create user: missing brandId for this branch')
+      }
+
       const createRes = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          brandId,
+          branchId: Number(branchId),
           username: createForm.username,
           password: createForm.password,
           role: createForm.userRole,
@@ -91,19 +98,6 @@ export default function BranchDetailPage() {
       const createData = await createRes.json()
       if (!createRes.ok) {
         throw new Error(createData.message || createData.error || 'Failed to create user')
-      }
-
-      const createdUserId: number | undefined = createData?.data?.id
-      if (!createdUserId) throw new Error('User created but no id returned')
-
-      const assignRes = await fetch(`/api/branches/${branchId}/staff`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: createdUserId, role: createForm.userRole }),
-      })
-      const assignData = await assignRes.json()
-      if (!assignRes.ok) {
-        throw new Error(assignData.message || assignData.error || 'Failed to assign user to branch')
       }
 
       setShowCreateUserForm(false)
@@ -380,7 +374,7 @@ export default function BranchDetailPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateAndAssign} className="px-6 py-5 space-y-4">
+            <form onSubmit={handleCreateUser} className="px-6 py-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
                 <input
