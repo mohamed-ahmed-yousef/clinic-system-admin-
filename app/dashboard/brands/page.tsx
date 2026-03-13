@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface Brand {
@@ -14,6 +15,7 @@ interface Brand {
 }
 
 export default function BrandsPage() {
+  const router = useRouter()
   const [brands, setBrands] = useState<Brand[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -154,7 +156,11 @@ export default function BrandsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {brands.map((brand) => (
-                <tr key={brand.id} className="hover:bg-gray-50 transition">
+                <tr
+                  key={brand.id}
+                  className="hover:bg-gray-50 transition cursor-pointer"
+                  onClick={() => router.push(`/dashboard/brands/${brand.id}`)}
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-700 text-sm font-bold">
@@ -178,12 +184,13 @@ export default function BrandsPage() {
                     <div className="flex items-center justify-end gap-3">
                       <Link
                         href={`/dashboard/brands/${brand.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition"
                       >
                         View Branches
                       </Link>
                       <button
-                        onClick={() => setDeleteId(brand.id)}
+                        onClick={(e) => { e.stopPropagation(); setDeleteId(brand.id) }}
                         className="text-sm text-red-500 hover:text-red-700 font-medium transition"
                       >
                         Delete

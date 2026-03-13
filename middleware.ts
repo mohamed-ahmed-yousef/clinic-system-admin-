@@ -11,7 +11,7 @@ export function middleware(request: NextRequest) {
   }
 
   if (isLoginPage && session?.value) {
-    return NextResponse.redirect(new URL('/dashboard/users', request.url))
+    return NextResponse.redirect(new URL('/dashboard/brands', request.url))
   }
 
   return NextResponse.next()

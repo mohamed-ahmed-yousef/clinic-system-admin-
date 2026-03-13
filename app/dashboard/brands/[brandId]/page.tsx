@@ -212,7 +212,11 @@ export default function BrandDetailPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {branches.map((branch) => (
-                <tr key={branch.id} className="hover:bg-gray-50 transition">
+                <tr
+                  key={branch.id}
+                  className="hover:bg-gray-50 transition cursor-pointer"
+                  onClick={() => router.push(`/dashboard/branches/${branch.id}`)}
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center text-violet-700 text-sm font-bold">
@@ -236,12 +240,13 @@ export default function BrandDetailPage() {
                     <div className="flex items-center justify-end gap-3">
                       <Link
                         href={`/dashboard/branches/${branch.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition"
                       >
                         View Staff
                       </Link>
                       <button
-                        onClick={() => setDeleteId(branch.id)}
+                        onClick={(e) => { e.stopPropagation(); setDeleteId(branch.id) }}
                         className="text-sm text-red-500 hover:text-red-700 font-medium transition"
                       >
                         Delete

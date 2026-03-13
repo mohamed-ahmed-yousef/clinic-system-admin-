@@ -22,12 +22,6 @@ interface StaffMember {
   user: { id: number; username: string; role: string }
 }
 
-interface User {
-  id: number
-  username: string
-  role: string
-}
-
 const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-700',
   doctor: 'bg-blue-100 text-blue-700',
@@ -40,15 +34,19 @@ export default function BranchDetailPage() {
 
   const [branch, setBranch] = useState<Branch | null>(null)
   const [staff, setStaff] = useState<StaffMember[]>([])
-  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showForm, setShowForm] = useState(false)
+  const [showCreateUserForm, setShowCreateUserForm] = useState(false)
+  const [editMember, setEditMember] = useState<StaffMember | null>(null)
   const [removeId, setRemoveId] = useState<number | null>(null)
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
   const [removeLoading, setRemoveLoading] = useState(false)
-  const [form, setForm] = useState({ userId: '', role: 'reception' })
+  const [createForm, setCreateForm] = useState({
+    username: '',
+    password: '',
+    userRole: 'doctor',
+  })
 
   async function fetchData() {
     setLoading(true)
@@ -74,35 +72,45 @@ export default function BranchDetailPage() {
     }
   }
 
-  async function fetchUsers() {
-    try {
-      const res = await fetch('/api/users')
-      const data = await res.json()
-      setUsers(data.data?.data || [])
-    } catch {
-      // silently fail; user can still type userId
-    }
-  }
-
   useEffect(() => { fetchData() }, [branchId])
 
-  async function handleAssign(e: React.FormEvent) {
+  async function handleCreateAndAssign(e: React.FormEvent) {
     e.preventDefault()
     setFormError('')
     setFormLoading(true)
     try {
-      const res = await fetch(`/api/branches/${branchId}/staff`, {
+      const createRes = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: Number(form.userId), role: form.role }),
+        body: JSON.stringify({
+          username: createForm.username,
+          password: createForm.password,
+          role: createForm.userRole,
+        }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message || data.error || 'Failed to assign staff')
-      setShowForm(false)
-      setForm({ userId: '', role: 'reception' })
+      const createData = await createRes.json()
+      if (!createRes.ok) {
+        throw new Error(createData.message || createData.error || 'Failed to create user')
+      }
+
+      const createdUserId: number | undefined = createData?.data?.id
+      if (!createdUserId) throw new Error('User created but no id returned')
+
+      const assignRes = await fetch(`/api/branches/${branchId}/staff`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: createdUserId, role: createForm.userRole }),
+      })
+      const assignData = await assignRes.json()
+      if (!assignRes.ok) {
+        throw new Error(assignData.message || assignData.error || 'Failed to assign user to branch')
+      }
+
+      setShowCreateUserForm(false)
+      setCreateForm({ username: '', password: '', userRole: 'doctor' })
       fetchData()
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Failed to assign staff')
+      setFormError(err instanceof Error ? err.message : 'Failed to create user')
     } finally {
       setFormLoading(false)
     }
@@ -123,8 +131,28 @@ export default function BranchDetailPage() {
     }
   }
 
-  const assignedUserIds = new Set(staff.map(s => s.userId))
-  const availableUsers = users.filter(u => !assignedUserIds.has(u.id))
+  async function handleUpdateRole(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editMember) return
+
+    setFormError('')
+    setFormLoading(true)
+    try {
+      const res = await fetch(`/api/branches/${branchId}/staff/${editMember.userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: editMember.role }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update role')
+      setEditMember(null)
+      fetchData()
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Failed to update role')
+    } finally {
+      setFormLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -201,15 +229,17 @@ export default function BranchDetailPage() {
         <h2 className="text-lg font-semibold text-gray-800">
           Staff <span className="text-gray-400 font-normal text-base">({staff.length})</span>
         </h2>
-        <button
-          onClick={() => { setShowForm(true); setFormError(''); fetchUsers() }}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Assign Staff
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setShowCreateUserForm(true); setFormError('') }}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New User
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -235,7 +265,11 @@ export default function BranchDetailPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {staff.map((member) => (
-                <tr key={member.id} className="hover:bg-gray-50 transition">
+                <tr
+                  key={member.id}
+                  className="hover:bg-gray-50 transition cursor-pointer"
+                  onClick={() => setEditMember(member)}
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 text-sm font-semibold">
@@ -259,7 +293,7 @@ export default function BranchDetailPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
-                      onClick={() => setRemoveId(member.userId)}
+                      onClick={(e) => { e.stopPropagation(); setRemoveId(member.userId) }}
                       className="text-sm text-red-500 hover:text-red-700 font-medium transition"
                     >
                       Remove
@@ -272,52 +306,28 @@ export default function BranchDetailPage() {
         )}
       </div>
 
-      {/* Assign Staff Modal */}
-      {showForm && (
+      {/* Edit Role Modal */}
+      {editMember && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">Assign Staff Member</h2>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 transition">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Edit Staff Role</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{editMember.user.username}</p>
+              </div>
+              <button onClick={() => setEditMember(null)} className="text-gray-400 hover:text-gray-600 transition">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <form onSubmit={handleAssign} className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">User</label>
-                {availableUsers.length > 0 ? (
-                  <select
-                    value={form.userId}
-                    onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                    required
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
-                  >
-                    <option value="">Select a user...</option>
-                    {availableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="number"
-                    value={form.userId}
-                    onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                    placeholder="User ID"
-                    required
-                    min={1}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                  />
-                )}
-              </div>
-
+            <form onSubmit={handleUpdateRole} className="px-6 py-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch Role</label>
                 <select
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  value={editMember.role}
+                  onChange={(e) => setEditMember({ ...editMember, role: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
                 >
                   <option value="reception">Reception</option>
@@ -339,7 +349,7 @@ export default function BranchDetailPage() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => setEditMember(null)}
                   className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
                 >
                   Cancel
@@ -349,7 +359,91 @@ export default function BranchDetailPage() {
                   disabled={formLoading}
                   className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
                 >
-                  {formLoading ? 'Assigning...' : 'Assign'}
+                  {formLoading ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create User + Assign Modal */}
+      {showCreateUserForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Create User for This Branch</h2>
+              <button onClick={() => setShowCreateUserForm(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAndAssign} className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
+                <input
+                  type="text"
+                  value={createForm.username}
+                  onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
+                  placeholder="Enter username"
+                  required
+                  minLength={3}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+                <input
+                  type="password"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  placeholder="Min. 6 characters"
+                  required
+                  minLength={6}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">System Role</label>
+                <select
+                  value={createForm.userRole}
+                  onChange={(e) => setCreateForm({ ...createForm, userRole: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
+                >
+                  <option value="doctor">Doctor</option>
+                  <option value="reception">Reception</option>
+                  <option value="admin">Admin</option>
+                  <option value="terminal">Terminal</option>
+                </select>
+              </div>
+
+              {formError && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                  <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {formError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateUserForm(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+                >
+                  {formLoading ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </form>

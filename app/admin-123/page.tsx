@@ -23,7 +23,7 @@ export default function LoginPage() {
       })
 
       if (res.ok) {
-        router.push('/dashboard/users')
+        router.push('/dashboard/brands')
       } else {
         setError('Invalid username or password')
       }
