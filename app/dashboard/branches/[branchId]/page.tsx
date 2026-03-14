@@ -46,6 +46,14 @@ export default function BranchDetailPage() {
     username: '',
     password: '',
     userRole: 'doctor',
+    doctorProfile: {
+      nameAr: '',
+      nameEn: '',
+      titleAr: '',
+      titleEn: '',
+      consultationFee: '',
+      examinationFee: '',
+    },
   })
 
   async function fetchData() {
@@ -93,6 +101,18 @@ export default function BranchDetailPage() {
           username: createForm.username,
           password: createForm.password,
           role: createForm.userRole,
+          ...(createForm.userRole === 'doctor'
+            ? {
+              doctorProfile: {
+                nameAr: createForm.doctorProfile.nameAr,
+                nameEn: createForm.doctorProfile.nameEn,
+                titleAr: createForm.doctorProfile.titleAr,
+                titleEn: createForm.doctorProfile.titleEn ? createForm.doctorProfile.titleEn : null,
+                ...(createForm.doctorProfile.consultationFee !== '' ? { consultationFee: Number(createForm.doctorProfile.consultationFee) } : {}),
+                ...(createForm.doctorProfile.examinationFee !== '' ? { examinationFee: Number(createForm.doctorProfile.examinationFee) } : {}),
+              },
+            }
+            : {}),
         }),
       })
       const createData = await createRes.json()
@@ -101,7 +121,19 @@ export default function BranchDetailPage() {
       }
 
       setShowCreateUserForm(false)
-      setCreateForm({ username: '', password: '', userRole: 'doctor' })
+      setCreateForm({
+        username: '',
+        password: '',
+        userRole: 'doctor',
+        doctorProfile: {
+          nameAr: '',
+          nameEn: '',
+          titleAr: '',
+          titleEn: '',
+          consultationFee: '',
+          examinationFee: '',
+        },
+      })
       fetchData()
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Failed to create user')
@@ -436,6 +468,80 @@ export default function BranchDetailPage() {
                   <option value="terminal">Terminal</option>
                 </select>
               </div>
+
+              {createForm.userRole === 'doctor' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Doctor Name (AR)</label>
+                      <input
+                        type="text"
+                        value={createForm.doctorProfile.nameAr}
+                        onChange={(e) => setCreateForm({ ...createForm, doctorProfile: { ...createForm.doctorProfile, nameAr: e.target.value } })}
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Doctor Name (EN)</label>
+                      <input
+                        type="text"
+                        value={createForm.doctorProfile.nameEn}
+                        onChange={(e) => setCreateForm({ ...createForm, doctorProfile: { ...createForm.doctorProfile, nameEn: e.target.value } })}
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Title (AR)</label>
+                      <input
+                        type="text"
+                        value={createForm.doctorProfile.titleAr}
+                        onChange={(e) => setCreateForm({ ...createForm, doctorProfile: { ...createForm.doctorProfile, titleAr: e.target.value } })}
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Title (EN)</label>
+                      <input
+                        type="text"
+                        value={createForm.doctorProfile.titleEn}
+                        onChange={(e) => setCreateForm({ ...createForm, doctorProfile: { ...createForm.doctorProfile, titleEn: e.target.value } })}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Consultation Fee</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={createForm.doctorProfile.consultationFee}
+                        onChange={(e) => setCreateForm({ ...createForm, doctorProfile: { ...createForm.doctorProfile, consultationFee: e.target.value } })}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Examination Fee</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={createForm.doctorProfile.examinationFee}
+                        onChange={(e) => setCreateForm({ ...createForm, doctorProfile: { ...createForm.doctorProfile, examinationFee: e.target.value } })}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {formError && (
                 <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
