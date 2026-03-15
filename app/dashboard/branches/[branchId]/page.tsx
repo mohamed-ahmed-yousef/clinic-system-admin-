@@ -56,6 +56,8 @@ export default function BranchDetailPage() {
     },
   })
 
+  const hasActiveDoctor = staff.some((member) => member.role === 'doctor' && member.isActive)
+
   async function fetchData() {
     setLoading(true)
     setError('')
@@ -87,6 +89,10 @@ export default function BranchDetailPage() {
     setFormError('')
     setFormLoading(true)
     try {
+      if (createForm.userRole === 'doctor' && hasActiveDoctor) {
+        throw new Error('This branch already has an active doctor. Remove/disable the current doctor first.')
+      }
+
       const brandId = branch?.brand?.id
       if (!brandId) {
         throw new Error('Cannot create user: missing brandId for this branch')
@@ -257,7 +263,11 @@ export default function BranchDetailPage() {
         </h2>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setShowCreateUserForm(true); setFormError('') }}
+            onClick={() => {
+              setShowCreateUserForm(true)
+              setFormError('')
+              setCreateForm((prev) => (hasActiveDoctor && prev.userRole === 'doctor' ? { ...prev, userRole: 'reception' } : prev))
+            }}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -462,12 +472,18 @@ export default function BranchDetailPage() {
                   onChange={(e) => setCreateForm({ ...createForm, userRole: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
                 >
-                  <option value="doctor">Doctor</option>
+                  <option value="doctor" disabled={hasActiveDoctor}>Doctor</option>
                   <option value="reception">Reception</option>
                   <option value="admin">Admin</option>
                   <option value="terminal">Terminal</option>
                 </select>
               </div>
+
+              {hasActiveDoctor && createForm.userRole !== 'doctor' && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  This branch already has a doctor. Creating another doctor is disabled.
+                </div>
+              )}
 
               {createForm.userRole === 'doctor' && (
                 <>
