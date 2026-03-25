@@ -26,6 +26,7 @@ const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-700',
   doctor: 'bg-blue-100 text-blue-700',
   reception: 'bg-green-100 text-green-700',
+  nurse: 'bg-cyan-100 text-cyan-700',
   terminal: 'bg-orange-100 text-orange-700',
 }
 
@@ -378,6 +379,7 @@ export default function BranchDetailPage() {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
                 >
                   <option value="reception">Reception</option>
+                  <option value="nurse">Nurse</option>
                   <option value="doctor">Doctor</option>
                   <option value="admin">Admin</option>
                   <option value="terminal">Terminal</option>
@@ -474,6 +476,7 @@ export default function BranchDetailPage() {
                 >
                   <option value="doctor" disabled={hasActiveDoctor}>Doctor</option>
                   <option value="reception">Reception</option>
+                  <option value="nurse">Nurse</option>
                   <option value="admin">Admin</option>
                   <option value="terminal">Terminal</option>
                 </select>
