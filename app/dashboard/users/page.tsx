@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import StaffEditModal from '@/components/StaffEditModal'
 import UserStatusSwitch from '@/components/UserStatusSwitch'
 
 type Role = 'superAdmin' | 'admin' | 'doctor' | 'reception' | 'terminal' | 'nurse'
@@ -50,6 +51,13 @@ const ROLE_COLORS: Record<string, string> = {
   nurse: 'bg-cyan-100 text-cyan-700',
 }
 
+const USER_ROLE_OPTIONS = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'doctor', label: 'Doctor' },
+  { value: 'reception', label: 'Reception' },
+  { value: 'terminal', label: 'Terminal' },
+]
+
 function getScopeLabel(entity: ScopedEntity | null | undefined, id: number | null | undefined, fallback: string) {
   if (entity?.name) return entity.name
   if (id != null) return `${fallback} #${id}`
@@ -86,6 +94,8 @@ export default function UsersPage() {
   const [error, setError] = useState('')
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
   const [statusLoadingId, setStatusLoadingId] = useState<number | null>(null)
   const [selectedBrand, setSelectedBrand] = useState('all')
   const [selectedBranch, setSelectedBranch] = useState('all')
@@ -223,6 +233,64 @@ export default function UsersPage() {
       alert(err instanceof Error ? err.message : 'Failed to deactivate user')
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  function openEditModal(user: User) {
+    setEditingUser(user)
+  }
+
+  function closeEditModal() {
+    if (editSaving) return
+    setEditingUser(null)
+  }
+
+  function resetEditModal() {
+    setEditingUser(null)
+  }
+
+  async function handleSaveEdit({ username, password, role }: { username: string; password: string; role?: string }) {
+    if (!editingUser) return
+
+    const nextUsername = username.trim()
+    const nextPassword = password.trim()
+    const nextRole = (role?.trim() || editingUser.role) as Role
+
+    if (!nextUsername) {
+      alert('Username is required')
+      return
+    }
+
+    if (!nextPassword && nextUsername === editingUser.username && nextRole === editingUser.role) {
+      alert('Change the username, password, or role')
+      return
+    }
+
+    if (nextPassword && nextPassword.length < 6) {
+      alert('Password must be at least 6 characters')
+      return
+    }
+
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: nextUsername,
+          role: nextRole,
+          ...(nextPassword ? { password: nextPassword } : {}),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update user')
+
+      await fetchUsers()
+      resetEditModal()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to update user')
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -403,12 +471,20 @@ export default function UsersPage() {
                           : '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setDeleteId(user.id)}
-                          className="text-sm font-medium text-red-500 transition hover:text-red-700"
-                        >
-                          Deactivate
-                        </button>
+                        <div className="flex items-center justify-end gap-4">
+                          <button
+                            onClick={() => openEditModal(user)}
+                            className="text-sm font-medium cursor-pointer text-indigo-600 transition hover:text-indigo-800"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteId(user.id)}
+                            className="text-sm font-medium cursor-pointer text-red-500 transition hover:text-red-700"
+                          >
+                            Deactivate
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -464,6 +540,19 @@ export default function UsersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {editingUser && (
+        <StaffEditModal
+          isOpen={Boolean(editingUser)}
+          username={editingUser.username}
+          role={editingUser.role}
+          roleLabel="System Role"
+          roleOptions={USER_ROLE_OPTIONS}
+          saving={editSaving}
+          onClose={closeEditModal}
+          onSubmit={handleSaveEdit}
+        />
       )}
     </div>
   )
