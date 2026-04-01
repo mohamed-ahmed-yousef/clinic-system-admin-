@@ -30,12 +30,16 @@ export async function POST(request: NextRequest) {
 
   const token: string = data.data.token
 
+  // Derive cookie maxAge directly from the JWT exp claim so they always stay in sync
+  const decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
+  const maxAge = decoded.exp - Math.floor(Date.now() / 1000)
+
   const response = NextResponse.json({ success: true })
   response.cookies.set('admin_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 8, // 8 hours (matches backend JWT expiry)
+    maxAge,
     path: '/',
   })
   return response

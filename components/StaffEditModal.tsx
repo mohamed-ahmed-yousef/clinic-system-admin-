@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
 
 type RoleOption = {
   value: string
@@ -119,14 +120,15 @@ export default function StaffEditModal({
         ) : null}
 
         <div className="mt-6 flex gap-3">
-          <button
+          <Button
             onClick={onClose}
             disabled={saving}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="outline"
+            className="flex-1"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() =>
               void onSubmit({
                 username: draftUsername,
@@ -135,10 +137,10 @@ export default function StaffEditModal({
               })
             }
             disabled={saving}
-            className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+            className="flex-1"
           >
             {saving ? 'Saving...' : 'Save'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

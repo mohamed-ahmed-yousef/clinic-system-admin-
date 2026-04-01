@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import ActionMenu from '@/components/ActionMenu'
 
 interface Brand {
   id: number
@@ -31,6 +32,8 @@ export default function BrandDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [showEditBrandForm, setShowEditBrandForm] = useState(false)
+  const [editBranch, setEditBranch] = useState<Branch | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
@@ -40,6 +43,18 @@ export default function BrandDetailPage() {
     address: '',
     phone: '',
     timezone: '',
+    isActive: true,
+  })
+  const [brandForm, setBrandForm] = useState({
+    name: '',
+    slug: '',
+    contactEmail: '',
+    isActive: true,
+  })
+  const [branchEditForm, setBranchEditForm] = useState({
+    name: '',
+    phone: '',
+    address: '',
     isActive: true,
   })
 
@@ -58,6 +73,12 @@ export default function BrandDetailPage() {
       if (!branchRes.ok) throw new Error(branchData.message || 'Failed to load branches')
 
       setBrand(brandData.data)
+      setBrandForm({
+        name: brandData.data.name,
+        slug: brandData.data.slug,
+        contactEmail: brandData.data.contactEmail || '',
+        isActive: brandData.data.isActive,
+      })
       setBranches(branchData.data?.data || [])
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
@@ -114,6 +135,74 @@ export default function BrandDetailPage() {
     }
   }
 
+  async function handleBrandUpdate(e: React.FormEvent) {
+    e.preventDefault()
+    setFormError('')
+    setFormLoading(true)
+    try {
+      const body: Record<string, unknown> = {
+        name: brandForm.name,
+        slug: brandForm.slug,
+        isActive: brandForm.isActive,
+      }
+      body.contactEmail = brandForm.contactEmail.trim() || null
+
+      const res = await fetch(`/api/brands/${brandId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update brand')
+      setShowEditBrandForm(false)
+      await fetchData()
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Failed to update brand')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  function openBranchEdit(branch: Branch) {
+    setEditBranch(branch)
+    setFormError('')
+    setBranchEditForm({
+      name: branch.name,
+      phone: branch.phone || '',
+      address: branch.address || '',
+      isActive: branch.isActive,
+    })
+  }
+
+  async function handleBranchUpdate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editBranch) return
+    setFormError('')
+    setFormLoading(true)
+    try {
+      const body: Record<string, unknown> = {
+        name: branchEditForm.name,
+        isActive: branchEditForm.isActive,
+      }
+      body.phone = branchEditForm.phone.trim() || null
+      body.address = branchEditForm.address.trim() || null
+
+      const res = await fetch(`/api/branches/${editBranch.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update branch')
+      setEditBranch(null)
+      await fetchData()
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Failed to update branch')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-400">
@@ -141,7 +230,7 @@ export default function BrandDetailPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 [&_a]:cursor-pointer [&_button]:cursor-pointer">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
         <Link href="/dashboard/brands" className="hover:text-gray-600 transition">Brands</Link>
@@ -154,6 +243,7 @@ export default function BrandDetailPage() {
       {/* Brand Info Card */}
       {brand && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+          <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-700 text-2xl font-bold">
               {brand.name[0].toUpperCase()}
@@ -170,6 +260,18 @@ export default function BrandDetailPage() {
                 {brand.contactEmail && <span className="text-sm text-gray-500">{brand.contactEmail}</span>}
               </div>
             </div>
+          </div>
+            <ActionMenu
+              items={[
+                {
+                  label: 'Edit Brand',
+                  onClick: () => {
+                    setShowEditBrandForm(true)
+                    setFormError('')
+                  },
+                },
+              ]}
+            />
           </div>
         </div>
       )}
@@ -188,7 +290,7 @@ export default function BrandDetailPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-visible">
         {branches.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <svg className="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -226,32 +328,24 @@ export default function BrandDetailPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {branch.phone || <span className="text-gray-300">—</span>}
+                    {branch.phone || <span className="text-gray-300">-</span>}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                    {branch.address || <span className="text-gray-300">—</span>}
+                    {branch.address || <span className="text-gray-300">-</span>}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${branch.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                       {branch.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <Link
-                        href={`/dashboard/branches/${branch.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition"
-                      >
-                        View Staff
-                      </Link>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteId(branch.id) }}
-                        className="text-sm text-red-500 hover:text-red-700 font-medium transition"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                  <td className="relative px-6 py-4 text-right">
+                    <ActionMenu
+                      items={[
+                        { label: 'View Staff', href: `/dashboard/branches/${branch.id}` },
+                        { label: 'Edit', onClick: () => openBranchEdit(branch) },
+                        { label: 'Delete', onClick: () => setDeleteId(branch.id), tone: 'danger' },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -354,6 +448,196 @@ export default function BrandDetailPage() {
                   className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
                 >
                   {formLoading ? 'Creating...' : 'Create Branch'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Brand Modal */}
+      {showEditBrandForm && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Edit Brand</h2>
+              <button onClick={() => setShowEditBrandForm(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleBrandUpdate} className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Brand Name</label>
+                <input
+                  type="text"
+                  value={brandForm.name}
+                  onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
+                  required
+                  minLength={2}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Slug</label>
+                <input
+                  type="text"
+                  value={brandForm.slug}
+                  onChange={(e) => setBrandForm({ ...brandForm, slug: e.target.value })}
+                  required
+                  minLength={2}
+                  pattern="[a-z0-9-]+"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-mono text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="email"
+                  value={brandForm.contactEmail}
+                  onChange={(e) => setBrandForm({ ...brandForm, contactEmail: e.target.value })}
+                  placeholder="contact@brand.com"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="brandDetailActive"
+                  checked={brandForm.isActive}
+                  onChange={(e) => setBrandForm({ ...brandForm, isActive: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label htmlFor="brandDetailActive" className="text-sm font-medium text-gray-700">Active</label>
+              </div>
+              {formError && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                  <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {formError}
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditBrandForm(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+                >
+                  {formLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Branch Modal */}
+      {editBranch && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Edit Branch</h2>
+              <button onClick={() => setEditBranch(null)} className="text-gray-400 hover:text-gray-600 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleBranchUpdate} className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch Name</label>
+                <input
+                  type="text"
+                  value={branchEditForm.name}
+                  onChange={(e) => setBranchEditForm({ ...branchEditForm, name: e.target.value })}
+                  required
+                  minLength={2}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={branchEditForm.phone}
+                  onChange={(e) => setBranchEditForm({ ...branchEditForm, phone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Address <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={branchEditForm.address}
+                  onChange={(e) => setBranchEditForm({ ...branchEditForm, address: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="editBranchActive"
+                  checked={branchEditForm.isActive}
+                  onChange={(e) => setBranchEditForm({ ...branchEditForm, isActive: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label htmlFor="editBranchActive" className="text-sm font-medium text-gray-700">Active</label>
+              </div>
+              {formError && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                  <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {formError}
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditBranch(null)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+                >
+                  {formLoading ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

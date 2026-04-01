@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import StaffEditModal from '@/components/StaffEditModal'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import ActionMenu from '@/components/ActionMenu'
 
 interface Branch {
   id: number
@@ -46,6 +47,7 @@ export default function BranchDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreateUserForm, setShowCreateUserForm] = useState(false)
+  const [showEditBranchForm, setShowEditBranchForm] = useState(false)
   const [editMember, setEditMember] = useState<StaffMember | null>(null)
   const [removeId, setRemoveId] = useState<number | null>(null)
   const [formError, setFormError] = useState('')
@@ -63,6 +65,12 @@ export default function BranchDetailPage() {
       consultationFee: '',
       examinationFee: '',
     },
+  })
+  const [branchForm, setBranchForm] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    isActive: true,
   })
 
   const hasActiveDoctor = staff.some((member) => member.role === 'doctor' && member.isActive)
@@ -83,6 +91,12 @@ export default function BranchDetailPage() {
       if (!staffRes.ok) throw new Error(staffData.message || 'Failed to load staff')
 
       setBranch(branchData.data)
+      setBranchForm({
+        name: branchData.data.name,
+        phone: branchData.data.phone || '',
+        address: branchData.data.address || '',
+        isActive: branchData.data.isActive,
+      })
       setStaff(staffData.data || [])
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
@@ -169,6 +183,34 @@ export default function BranchDetailPage() {
       alert(err instanceof Error ? err.message : 'Failed to remove staff')
     } finally {
       setRemoveLoading(false)
+    }
+  }
+
+  async function handleUpdateBranch(e: React.FormEvent) {
+    e.preventDefault()
+    setFormError('')
+    setFormLoading(true)
+    try {
+      const body: Record<string, unknown> = {
+        name: branchForm.name,
+        isActive: branchForm.isActive,
+      }
+      body.phone = branchForm.phone.trim() || null
+      body.address = branchForm.address.trim() || null
+
+      const res = await fetch(`/api/branches/${branchId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update branch')
+      setShowEditBranchForm(false)
+      await fetchData()
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Failed to update branch')
+    } finally {
+      setFormLoading(false)
     }
   }
 
@@ -262,7 +304,7 @@ export default function BranchDetailPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 [&_a]:cursor-pointer [&_button]:cursor-pointer">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 mb-6">
         <Link href="/dashboard/brands" className="hover:text-gray-600 transition">Brands</Link>
@@ -284,7 +326,8 @@ export default function BranchDetailPage() {
 
       {/* Branch Info Card */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
-        <div className="flex items-center gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-violet-700 text-2xl font-bold">
             {branch?.name?.[0]?.toUpperCase() ?? '#'}
           </div>
@@ -302,6 +345,18 @@ export default function BranchDetailPage() {
               {branch?.address && <span>{branch.address}</span>}
             </div>
           </div>
+          </div>
+          <ActionMenu
+            items={[
+              {
+                label: 'Edit Branch',
+                onClick: () => {
+                  setShowEditBranchForm(true)
+                  setFormError('')
+                },
+              },
+            ]}
+          />
         </div>
       </div>
 
@@ -327,7 +382,7 @@ export default function BranchDetailPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-visible">
         {staff.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <svg className="w-12 h-12 mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,13 +431,13 @@ export default function BranchDetailPage() {
                       {member.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setRemoveId(member.userId) }}
-                      className="text-sm cursor-pointer text-red-500 hover:text-red-700 font-medium transition"
-                    >
-                      Remove
-                    </button>
+                  <td className="relative px-6 py-4 text-right">
+                    <ActionMenu
+                      items={[
+                        { label: 'Edit', onClick: () => setEditMember(member) },
+                        { label: 'Remove', onClick: () => setRemoveId(member.userId), tone: 'danger' },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -403,6 +458,103 @@ export default function BranchDetailPage() {
           onClose={closeEditModal}
           onSubmit={handleSaveEdit}
         />
+      )}
+
+      {showEditBranchForm && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Edit Branch</h2>
+              <button onClick={() => setShowEditBranchForm(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateBranch} className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch Name</label>
+                <input
+                  type="text"
+                  value={branchForm.name}
+                  onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+                  required
+                  minLength={2}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={branchForm.phone}
+                  onChange={(e) => setBranchForm({ ...branchForm, phone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Address <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={branchForm.address}
+                  onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="branchEditActive"
+                  checked={branchForm.isActive}
+                  onChange={(e) => setBranchForm({ ...branchForm, isActive: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label htmlFor="branchEditActive" className="text-sm font-medium text-gray-700">Active</label>
+              </div>
+
+              {formError && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                  <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {formError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditBranchForm(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
+                >
+                  {formLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Create User + Assign Modal */}
