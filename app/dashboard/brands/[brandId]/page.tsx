@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ActionMenu from '@/components/ActionMenu'
+import UserStatusSwitch from '@/components/UserStatusSwitch'
 
 interface Brand {
   id: number
@@ -34,10 +35,9 @@ export default function BrandDetailPage() {
   const [showForm, setShowForm] = useState(false)
   const [showEditBrandForm, setShowEditBrandForm] = useState(false)
   const [editBranch, setEditBranch] = useState<Branch | null>(null)
-  const [deleteId, setDeleteId] = useState<number | null>(null)
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
-  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [statusLoadingKey, setStatusLoadingKey] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
     address: '',
@@ -120,18 +120,62 @@ export default function BrandDetailPage() {
     }
   }
 
-  async function handleDelete(id: number) {
-    setDeleteLoading(true)
+  async function handleToggleBrandStatus(nextStatus: boolean) {
+    if (!brand) return
+    setStatusLoadingKey(`brand-${brand.id}`)
     try {
-      const res = await fetch(`/api/branches/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/brands/${brandId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: brandForm.name,
+          slug: brandForm.slug,
+          contactEmail: brandForm.contactEmail.trim() || null,
+          isActive: nextStatus,
+        }),
+      })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.message || data.error || 'Failed to delete branch')
-      setDeleteId(null)
-      fetchData()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update brand status')
+      setBrand((currentBrand) => currentBrand ? { ...currentBrand, isActive: nextStatus } : currentBrand)
+      setBrandForm((currentForm) => ({ ...currentForm, isActive: nextStatus }))
+      if (!nextStatus) {
+        setBranches((currentBranches) => currentBranches.map((branch) => ({ ...branch, isActive: false })))
+      }
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to delete branch')
+      alert(err instanceof Error ? err.message : 'Failed to update brand status')
     } finally {
-      setDeleteLoading(false)
+      setStatusLoadingKey(null)
+    }
+  }
+
+  async function handleToggleBranchStatus(branch: Branch, nextStatus: boolean) {
+    setStatusLoadingKey(`branch-${branch.id}`)
+    try {
+      const res = await fetch(`/api/branches/${branch.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: branch.name,
+          phone: branch.phone,
+          address: branch.address,
+          timezone: branch.timezone,
+          isActive: nextStatus,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update branch status')
+      setBranches((currentBranches) =>
+        currentBranches.map((currentBranch) =>
+          currentBranch.id === branch.id ? { ...currentBranch, isActive: nextStatus } : currentBranch,
+        ),
+      )
+      if (editBranch?.id === branch.id) {
+        setBranchEditForm((currentForm) => ({ ...currentForm, isActive: nextStatus }))
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to update branch status')
+    } finally {
+      setStatusLoadingKey(null)
     }
   }
 
@@ -254,6 +298,12 @@ export default function BrandDetailPage() {
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${brand.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                   {brand.isActive ? 'Active' : 'Inactive'}
                 </span>
+                <UserStatusSwitch
+                  checked={brand.isActive}
+                  disabled={statusLoadingKey === `brand-${brand.id}`}
+                  ariaLabel={`Set ${brand.name} status`}
+                  onChange={handleToggleBrandStatus}
+                />
               </div>
               <div className="flex items-center gap-4 mt-1">
                 <code className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{brand.slug}</code>
@@ -334,16 +384,23 @@ export default function BrandDetailPage() {
                     {branch.address || <span className="text-gray-300">-</span>}
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${branch.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {branch.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${branch.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {branch.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      <UserStatusSwitch
+                        checked={branch.isActive}
+                        disabled={statusLoadingKey === `branch-${branch.id}`}
+                        ariaLabel={`Set ${branch.name} status`}
+                        onChange={(nextValue) => handleToggleBranchStatus(branch, nextValue)}
+                      />
+                    </div>
                   </td>
                   <td className="relative px-6 py-4 text-right">
                     <ActionMenu
                       items={[
                         { label: 'View Staff', href: `/dashboard/branches/${branch.id}` },
                         { label: 'Edit', onClick: () => openBranchEdit(branch) },
-                        { label: 'Delete', onClick: () => setDeleteId(branch.id), tone: 'danger' },
                       ]}
                     />
                   </td>
@@ -641,50 +698,6 @@ export default function BrandDetailPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Branch Confirmation */}
-      {deleteId !== null && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">Delete Branch</h3>
-            <p className="text-gray-500 text-sm text-center mb-6">
-              Are you sure you want to delete this branch? This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(deleteId)}
-                disabled={deleteLoading}
-                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition"
-              >
-                {deleteLoading ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
           </div>
         </div>
       )}

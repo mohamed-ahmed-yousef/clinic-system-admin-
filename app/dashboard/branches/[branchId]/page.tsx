@@ -5,6 +5,7 @@ import StaffEditModal from '@/components/StaffEditModal'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import ActionMenu from '@/components/ActionMenu'
+import UserStatusSwitch from '@/components/UserStatusSwitch'
 
 interface Branch {
   id: number
@@ -53,6 +54,7 @@ export default function BranchDetailPage() {
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
   const [removeLoading, setRemoveLoading] = useState(false)
+  const [statusLoading, setStatusLoading] = useState(false)
   const [createForm, setCreateForm] = useState({
     username: '',
     password: '',
@@ -214,6 +216,32 @@ export default function BranchDetailPage() {
     }
   }
 
+  async function handleToggleBranchStatus(nextStatus: boolean) {
+    if (!branch) return
+
+    setStatusLoading(true)
+    try {
+      const res = await fetch(`/api/branches/${branchId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: branch.name,
+          phone: branch.phone,
+          address: branch.address,
+          isActive: nextStatus,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update branch status')
+      setBranch((currentBranch) => currentBranch ? { ...currentBranch, isActive: nextStatus } : currentBranch)
+      setBranchForm((currentForm) => ({ ...currentForm, isActive: nextStatus }))
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to update branch status')
+    } finally {
+      setStatusLoading(false)
+    }
+  }
+
   function closeEditModal() {
     if (formLoading) return
     setEditMember(null)
@@ -338,6 +366,14 @@ export default function BranchDetailPage() {
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${branch.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                   {branch.isActive ? 'Active' : 'Inactive'}
                 </span>
+              )}
+              {branch && (
+                <UserStatusSwitch
+                  checked={branch.isActive}
+                  disabled={statusLoading}
+                  ariaLabel={`Set ${branch.name} status`}
+                  onChange={handleToggleBranchStatus}
+                />
               )}
             </div>
             <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
