@@ -7,12 +7,44 @@ import Link from 'next/link'
 import ActionMenu from '@/components/ActionMenu'
 import UserStatusSwitch from '@/components/UserStatusSwitch'
 
+const TIMEZONES = [
+  { value: 'UTC', label: 'UTC' },
+  { value: 'Africa/Cairo', label: 'Africa/Cairo (EET, UTC+2/+3)' },
+  { value: 'Africa/Johannesburg', label: 'Africa/Johannesburg (SAST, UTC+2)' },
+  { value: 'Africa/Nairobi', label: 'Africa/Nairobi (EAT, UTC+3)' },
+  { value: 'Africa/Lagos', label: 'Africa/Lagos (WAT, UTC+1)' },
+  { value: 'America/New_York', label: 'America/New_York (ET, UTC-5/-4)' },
+  { value: 'America/Chicago', label: 'America/Chicago (CT, UTC-6/-5)' },
+  { value: 'America/Denver', label: 'America/Denver (MT, UTC-7/-6)' },
+  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PT, UTC-8/-7)' },
+  { value: 'America/Sao_Paulo', label: 'America/Sao_Paulo (BRT, UTC-3/-2)' },
+  { value: 'Europe/London', label: 'Europe/London (GMT/BST, UTC+0/+1)' },
+  { value: 'Europe/Paris', label: 'Europe/Paris (CET, UTC+1/+2)' },
+  { value: 'Europe/Berlin', label: 'Europe/Berlin (CET, UTC+1/+2)' },
+  { value: 'Europe/Istanbul', label: 'Europe/Istanbul (TRT, UTC+3)' },
+  { value: 'Asia/Dubai', label: 'Asia/Dubai (GST, UTC+4)' },
+  { value: 'Asia/Riyadh', label: 'Asia/Riyadh (AST, UTC+3)' },
+  { value: 'Asia/Baghdad', label: 'Asia/Baghdad (AST, UTC+3)' },
+  { value: 'Asia/Kolkata', label: 'Asia/Kolkata (IST, UTC+5:30)' },
+  { value: 'Asia/Dhaka', label: 'Asia/Dhaka (BST, UTC+6)' },
+  { value: 'Asia/Bangkok', label: 'Asia/Bangkok (ICT, UTC+7)' },
+  { value: 'Asia/Singapore', label: 'Asia/Singapore (SGT, UTC+8)' },
+  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST, UTC+9)' },
+  { value: 'Australia/Sydney', label: 'Australia/Sydney (AEST, UTC+10/+11)' },
+  { value: 'Pacific/Auckland', label: 'Pacific/Auckland (NZST, UTC+12/+13)' },
+]
+
+function getTimezoneLabel(timezone?: string | null) {
+  return TIMEZONES.find((option) => option.value === timezone)?.label || timezone || 'UTC'
+}
+
 interface Branch {
   id: number
   name: string
   address: string | null
   phone: string | null
   isActive: boolean
+  timezone: string | null
   brand?: { id: number; name: string }
 }
 
@@ -72,6 +104,7 @@ export default function BranchDetailPage() {
     name: '',
     phone: '',
     address: '',
+    timezone: 'UTC',
     isActive: true,
   })
 
@@ -97,6 +130,7 @@ export default function BranchDetailPage() {
         name: branchData.data.name,
         phone: branchData.data.phone || '',
         address: branchData.data.address || '',
+        timezone: branchData.data.timezone || 'UTC',
         isActive: branchData.data.isActive,
       })
       setStaff(staffData.data || [])
@@ -199,6 +233,7 @@ export default function BranchDetailPage() {
       }
       body.phone = branchForm.phone.trim() || null
       body.address = branchForm.address.trim() || null
+      body.timezone = branchForm.timezone || 'UTC'
 
       const res = await fetch(`/api/branches/${branchId}`, {
         method: 'PUT',
@@ -228,6 +263,7 @@ export default function BranchDetailPage() {
           name: branch.name,
           phone: branch.phone,
           address: branch.address,
+          timezone: branch.timezone || branchForm.timezone || 'UTC',
           isActive: nextStatus,
         }),
       })
@@ -379,6 +415,7 @@ export default function BranchDetailPage() {
             <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
               {branch?.phone && <span>{branch.phone}</span>}
               {branch?.address && <span>{branch.address}</span>}
+              <span>{getTimezoneLabel(branch?.timezone)}</span>
             </div>
           </div>
           </div>
@@ -550,6 +587,21 @@ export default function BranchDetailPage() {
                   onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Timezone</label>
+                <select
+                  value={branchForm.timezone}
+                  onChange={(e) => setBranchForm({ ...branchForm, timezone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                >
+                  {TIMEZONES.map((timezone) => (
+                    <option key={timezone.value} value={timezone.value}>
+                      {timezone.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center gap-3">

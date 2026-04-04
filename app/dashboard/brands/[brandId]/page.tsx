@@ -6,6 +6,15 @@ import Link from 'next/link'
 import ActionMenu from '@/components/ActionMenu'
 import UserStatusSwitch from '@/components/UserStatusSwitch'
 
+const TIMEZONES = [
+  { value: 'UTC', label: 'UTC' },
+  { value: 'Africa/Cairo', label: 'Africa/Cairo (UTC+2/+3)' },
+]
+
+function getTimezoneLabel(timezone?: string | null) {
+  return TIMEZONES.find((option) => option.value === timezone)?.label || timezone || 'UTC'
+}
+
 interface Brand {
   id: number
   name: string
@@ -42,7 +51,7 @@ export default function BrandDetailPage() {
     name: '',
     address: '',
     phone: '',
-    timezone: '',
+    timezone: 'UTC',
     isActive: true,
   })
   const [brandForm, setBrandForm] = useState({
@@ -55,6 +64,7 @@ export default function BrandDetailPage() {
     name: '',
     phone: '',
     address: '',
+    timezone: 'UTC',
     isActive: true,
   })
 
@@ -111,7 +121,7 @@ export default function BrandDetailPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || data.error || 'Failed to create branch')
       setShowForm(false)
-      setForm({ name: '', address: '', phone: '', timezone: '', isActive: true })
+      setForm({ name: '', address: '', phone: '', timezone: 'UTC', isActive: true })
       fetchData()
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Failed to create branch')
@@ -158,7 +168,7 @@ export default function BrandDetailPage() {
           name: branch.name,
           phone: branch.phone,
           address: branch.address,
-          timezone: branch.timezone,
+          timezone: branch.timezone || 'UTC',
           isActive: nextStatus,
         }),
       })
@@ -214,6 +224,7 @@ export default function BrandDetailPage() {
       name: branch.name,
       phone: branch.phone || '',
       address: branch.address || '',
+      timezone: branch.timezone || 'UTC',
       isActive: branch.isActive,
     })
   }
@@ -230,6 +241,7 @@ export default function BrandDetailPage() {
       }
       body.phone = branchEditForm.phone.trim() || null
       body.address = branchEditForm.address.trim() || null
+      body.timezone = branchEditForm.timezone || 'UTC'
 
       const res = await fetch(`/api/branches/${editBranch.id}`, {
         method: 'PUT',
@@ -358,6 +370,7 @@ export default function BrandDetailPage() {
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Branch</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Phone</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Address</th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Timezone</th>
                 <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Status</th>
                 <th className="px-6 py-3"></th>
               </tr>
@@ -382,6 +395,9 @@ export default function BrandDetailPage() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                     {branch.address || <span className="text-gray-300">-</span>}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {getTimezoneLabel(branch.timezone)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -469,6 +485,21 @@ export default function BrandDetailPage() {
                   placeholder="123 Main St, Cairo"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Timezone</label>
+                <select
+                  value={form.timezone}
+                  onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                >
+                  {TIMEZONES.map((timezone) => (
+                    <option key={timezone.value} value={timezone.value}>
+                      {timezone.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center gap-3">
@@ -662,6 +693,20 @@ export default function BrandDetailPage() {
                   onChange={(e) => setBranchEditForm({ ...branchEditForm, address: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Timezone</label>
+                <select
+                  value={branchEditForm.timezone}
+                  onChange={(e) => setBranchEditForm({ ...branchEditForm, timezone: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                >
+                  {TIMEZONES.map((timezone) => (
+                    <option key={timezone.value} value={timezone.value}>
+                      {timezone.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-center gap-3">
                 <input
